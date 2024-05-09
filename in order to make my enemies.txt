@@ -1,0 +1,31 @@
+in order to make my enemies, i am using the following code
+    pthread_t ghostThread[4];
+    int index_Ghost = 0;
+
+    for (int i = 0; i < 4; i++) 
+    {
+        pthread_mutex_init(&GhostMutex[i], NULL);
+        pthread_create(&ghostThread[index_Ghost], NULL, Ghost_Movement, (void*) &index_Ghost);
+        index_Ghost++;
+    }
+where Ghost Movement is being handled
+void* Ghost_Movement(void* arg)
+{
+    int ghostIndex = *((int*)arg)-1;
+    //cout<<ghostIndex<<endl;
+    while (GameOpen) {
+        pthread_mutex_lock(&GhostMutex[ghostIndex]);
+        Ghosts[ghostIndex].move(ghostIndex);
+        cout<<ghostIndex<<endl;
+        cout<<Ghosts[ghostIndex].sprite.getPosition().x <<" "<<  Ghosts[ghostIndex].sprite.getPosition().y<<endl;
+        pthread_mutex_unlock(&GhostMutex[ghostIndex]);
+    }
+    pthread_exit(NULL);
+}
+and move, makes sure each enemy sprite is being updated
+    void move(int ghostIndex){
+        //pthread_mutex_lock(&GhostMutex[ghostIndex]);
+        this->sprite.move(1*speed,1*speed);
+        //pthread_mutex_unlock(&GhostMutex[ghostIndex]);
+    }
+However, the enemies are simply printed and do not move
