@@ -7,6 +7,8 @@
 using namespace std;
 using namespace sf;
 
+void SetPowerMode();
+
 
 pthread_mutex_t Draw;
 float timer = 0;
@@ -66,9 +68,29 @@ struct Pellets
         this->fruit = false;
         this->eaten = false;
     }
+    Pellets(std::string img)
+    {
+        this->sprite.setPosition(0,0);
+        this->tex.loadFromFile(img);
+        this->sprite.setTexture(this->tex);
+        this->sprite.setScale(2,2);
+        this->disappear = 0;
+        this->reappear = 0;
+        this->x = 0;
+        this->y = 0;
+        this->fruit = false;
+        this->eaten = false;
+    }
 
 };
 Pellets Normal_Pellets[370];
+Pellets Fruits[5]{
+    Pellets("pacman-art/other/strawberry.png"),
+    Pellets("pacman-art/other/strawberry.png"),
+    Pellets("pacman-art/other/strawberry.png"),
+    Pellets("pacman-art/other/strawberry.png"),
+    Pellets("pacman-art/other/strawberry.png"),
+};
 
 pthread_mutex_t PlayerMutex;
 
@@ -80,6 +102,9 @@ struct Player
     int direction;
     int score;
     int Lives;
+    bool PowerMode;
+    float powStart;
+    float powEnd;
 
     Player()
     {
@@ -93,24 +118,25 @@ struct Player
         this->Lives = 3;
         pacx = 50;
         pacy = 50;
+        this->PowerMode = false;
     }
 
     float getTop()
-    {     //gives TOP y coordinate
+    {    
         return this->sprite.getPosition().y - 8;
     }
 
     float getbottom()
-    {//gives BOTTOM y coordinate
+    {
         return this->sprite.getPosition().y + 8;
     }
 
     float getRight()
-    {   //RIGHT MOST coordinate
+    {   
         return this->sprite.getPosition().x + 8;
     } 
     float getLeft()
-    {    //LEFT MOST coordinate
+    {    
         return this->sprite.getPosition().x - 8;
     }
 
@@ -128,20 +154,13 @@ struct Player
             }
         }
         return 0;
-
-        // for( int i = 0; i< 250 ; i++){
-        //     if(this->sprite.getGlobalBounds().intersects(wall[i].getGlobalBounds())){
-        //         return 1;
-        //     }
-        //     return 0;
-        // }
     } 
 
     void move()
     {
         pthread_mutex_lock(&PlayerMutex);
-        if(direction == 1)
-        { // left
+        if(direction == 1) // left
+        {
             this->tex.loadFromFile("pacman-art/pacman-left/1.png");
             this->sprite.setTexture(this->tex);
             if( !isWallCollision(this->sprite.getPosition().x-1,this->sprite.getPosition().y) )
@@ -180,11 +199,17 @@ struct Player
             this->score++;
             cout<<score<<endl;
         }
+        if(FruitPacCollision(Fruits,5)){
+            this->PowerMode = true;
+            this->powStart = timer;
+            this->powEnd = powStart + 3;
+            cout<<"power mode on! "<<this->powStart <<" ending: "<<this->powEnd<<endl;
+            SetPowerMode();
+        }
         pacx = this->sprite.getPosition().x;
         pacy = this->sprite.getPosition().y;
         pthread_mutex_unlock(&PlayerMutex);
     }
-
 
     void GotUserKeyPress(sf::Keyboard::Key key) 
     {
@@ -208,14 +233,27 @@ struct Player
             this->sprite.getPosition().y  < (NormalPellets[i].sprite.getPosition().y + 12) &&
             this->sprite.getPosition().y  > NormalPellets[i].sprite.getPosition().y - 12)
             {
-            //if(this->sprite.getGlobalBounds().intersects(Normal_Pellets[i].sprite.getGlobalBounds())){
-                cout<<"im pellet no."<<i<<endl;
-                cout<<"eaten b4pos"<<Normal_Pellets[i].sprite.getPosition().x<<" "<<Normal_Pellets[i].sprite.getPosition().y<<endl;
-                Normal_Pellets[i].sprite.setPosition(0,0);
+                Normal_Pellets[i].sprite.setPosition(660,660);
                 Normal_Pellets[i].disappear = timer;
                 Normal_Pellets[i].reappear = Normal_Pellets[i].disappear + 5;
-                cout<<"eaten afterpos"<<Normal_Pellets[i].sprite.getPosition().x<<" "<<Normal_Pellets[i].sprite.getPosition().y<<" i respawn at"<<Normal_Pellets[i].reappear<<endl;
                 Normal_Pellets[i].eaten = true;
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+
+    bool FruitPacCollision(Pellets (&Fruits)[], int fruitCount){
+
+        for( int i = 0; i < fruitCount; i++){
+            if(this->sprite.getPosition().x > (Fruits[i].sprite.getPosition().x - 12) &&
+            this->sprite.getPosition().x < (Fruits[i].sprite.getPosition().x + 12) &&
+            this->sprite.getPosition().y  < (Fruits[i].sprite.getPosition().y + 12) &&
+            this->sprite.getPosition().y  > Fruits[i].sprite.getPosition().y - 12)
+            {
+                Fruits[i].sprite.setPosition(660,660);
+                Fruits[i].eaten = true;
                 return 1;
             }
         }
@@ -236,155 +274,139 @@ struct Ghost
     int x;
     int y;
     bool inhouse;
-    Ghost(std::string img, int exx, int why)
+    Ghost(std::string img, int x, int y)
     {
         this->tex.loadFromFile(img);
-        this->sprite.setPosition(exx,why);
+        this->sprite.setPosition(x,y);
         this->sprite.setTexture(this->tex);
         this->sprite.setScale(1.5,1.5);
-        this->direction = 1;
-        this->speed = 0.7;
-        x = exx;
-        y = why;
-        inhouse = 1;
+        this->direction = 0;
+        this->speed = 1.1;
+        this->x = x;
+        this->y = y;
+        this->inhouse = true;
     }
     
-    void checkInhouse(int a, int b)
-    {
-    	if(this->sprite.getPosition().x == a && this->sprite.getPosition().y ==b)
-    	{
-    		inhouse = 1;
-    	}
+    void checkInhouse(int a, int b){
+    	if(this->sprite.getPosition().x == a && this->sprite.getPosition().y == b) inhouse = 1;
 	}
 
-	bool isPacCollision(int dx, int dy)
-    {
-        
+	bool GhostPacCollision(int dx, int dy)
+    {   
         if(dx + 1  > (this->sprite.getPosition().x - 20) &&
         dx - 1 < (this->sprite.getPosition().x + 20) &&
         dy - 1 < (this->sprite.getPosition().y + 20) &&
-        dy + 1 > this->sprite.getPosition().y - 20)
-        {
+        dy + 1 > this->sprite.getPosition().y - 20){
             return 1;
         }
-    
         return 0;
     }
 
-    void move(int ghostIndex)
+    void move(){
+        if(this->direction == 1){ //left 
+            this->sprite.move(-1*speed,0);
+        }
+        if(this->direction == 2){ // right
+            this->sprite.move(1*speed,0);
+        }
+        if(this->direction == 3){ //up
+            this->sprite.move(0,-1*speed);
+        }
+        if(this->direction == 4){ //down
+            this->sprite.move(0,1*speed);
+        }
+    }
+    
+    void Directed_Movement_Ghost(int ghostIndex)
     {
-    	if(ghostIndex == 0)
+    	if(ghostIndex == 0 )
     	{
-    		if((this->sprite.getPosition().x < 280) && this->sprite.getPosition().y == 210)
-    		{
-    			this->sprite.move(1*speed, 0*speed);	//move right
+    		if(this->sprite.getPosition().x == 220 && this->sprite.getPosition().y == 210){ // move right
+                this->direction = 2; 
     		}
-    		else
-    		{ 
-    			if(this->sprite.getPosition().x >= 270 && this->sprite.getPosition().y <270) //move down
-    			{
-					this->sprite.move(0* speed, 1*speed);
-    			}
+    		 
+            else if(this->sprite.getPosition().x > 280 && this->sprite.getPosition().y == 210) { //move down
+                this->direction = 4;
+            }
+    		
+    		else if(this->sprite.getPosition().x > 125 && this->sprite.getPosition().y >= 270){ //move left
+    			this->direction = 1;
     		}
-    		if(this->sprite.getPosition().x >= 130 && this->sprite.getPosition().y >= 270)	//move left
-    		{
-    			this->sprite.move(-1* speed, 0);
-    		}
+
+            else if((this->sprite.getPosition().x < 125 && this->sprite.getPosition().x > 55) && (this->sprite.getPosition().y > 270 && this->sprite.getPosition().y < 370)){ // move down
+                this->direction = 4;
+            }
+
+            else if((this->sprite.getPosition().x < 125 && this->sprite.getPosition().x > 55 ) && this->sprite.getPosition().y > 370 ){ // move left
+                this->direction = 1; 
+            }
+
+            else if(this->sprite.getPosition().x < 55 && this->sprite.getPosition().y > 370){ // move up
+                this->direction = 3; 
+            }
+
+            else if(this->sprite.getPosition().x < 55 && this->sprite.getPosition().y < 30){// move right 
+                this->direction = 2;
+            }
+
+            else if(this->sprite.getPosition().x > 125 && this->sprite.getPosition().y < 30){ // move down
+                this->direction = 4;
+            }
+           //cout<<this->sprite.getPosition().x<<" "<<this->sprite.getPosition().y<<endl;
     	}
-    	else if(ghostIndex == 1)
-    	{
-    		if((this->sprite.getPosition().x < 280) && this->sprite.getPosition().y == 210)
-    		{
-    			this->sprite.move(1*speed, 0*speed);	//move right
+    	else if(ghostIndex == 1){
+            this->speed = 1;
+            if(this->sprite.getPosition().x == 250 && this->sprite.getPosition().y == 210){ // move right
+                this->direction = 2;
+            }
+            else if(this->sprite.getPosition().x == 280 && this->sprite.getPosition().y == 210) { //move down
+                this->direction = 4;
+            }
+    		else if(this->sprite.getPosition().x == 280 && this->sprite.getPosition().y == 270){ //move right
+    			this->direction = 2;
     		}
-    		else
-    		{ 
-    			if(this->sprite.getPosition().x >= 270 && this->sprite.getPosition().y <270) //move down
-    			{
-					this->sprite.move(0* speed, 1*speed);
-    			}
-    		}
-    		if(this->sprite.getPosition().x < 425 && this->sprite.getPosition().y >= 270)	//move right
-    		{
-    			this->sprite.move(1* speed, 0);
-    		}
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 270){ // move up
+                this->direction = 3;
+            }
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 185){ // move left
+                this->direction = 1;
+            }
+            else if(this->sprite.getPosition().x == 425 && this->sprite.getPosition().y == 185){ // move up
+                this->direction = 3;
+            }
+            else if(this->sprite.getPosition().x == 425 && this->sprite.getPosition().y == 110){ // move right
+                this->direction = 2;
+            }
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 110){ // move up
+                this->direction = 3;
+            }
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 30){ // move left
+                this->direction = 1;
+            }
+            else if(this->sprite.getPosition().x == 423 && this->sprite.getPosition().y == 30){ // move down
+                this->direction = 4;
+            }
+            else if(this->sprite.getPosition().x == 423 && this->sprite.getPosition().y == 270){ // move right
+                this->direction = 2;
+            }
     	}
     	else if(ghostIndex == 3)
-    	{
-    		// Define a state variable to keep track of the ghost's motion direction
-			bool movingUp = true;
-			if(this->sprite.getPosition().y > 210 && !movingUp)
-			{
-				movingUp = true;
-			}
-			else if(this->sprite.getPosition().y < 165 && movingUp)
-			{
-				movingUp = false;
-			}
-			if (movingUp) 
-			{
-		   	 	this->sprite.move(0, -1 * speed); // Move up
-		   	//	cout << "Moving up" << endl;
-			} 
-			else
-			{
-				this->sprite.move(0, speed); // Move down
-			}
-			
-			/*
-			if (this->sprite.getPosition().y < 210 && this->sprite.getPosition().y > 165 && !movingUp) 
-			{
-				this->sprite.move(0,speed);
-				if(this->sprite.getPosition().y >= 210)
-				{
-					movingUp = true; // If the ghost has reached the upper limit, change direction to up
-				}
-				else if(this->sprite.getPosition().y <= 165)
-				{
-					movingUp = false;
-				}
-			} 
-			if (this->sprite.getPosition().y < 210 && this->sprite.getPosition().x > 165 && movingUp) 
-			{
-				this->sprite.move(0, -1*speed);
-				movingUp = false; // If the ghost has reached the lower limit, change direction to down
-			}
-			*/
-			/*
-			// Update the ghost's motion based on its current position and direction
-			if (this->sprite.getPosition().y < 210 && this->sprite.getPosition().y > 165 && !movingUp) 
-			{
-				movingUp = true; // If the ghost has reached the upper limit, change direction to up
-			} 
-			if (this->sprite.getPosition().y > 165 && movingUp) 
-			{
-				movingUp = false; // If the ghost has reached the lower limit, change direction to down
-			}
-			*/
-			// Move the ghost up or down based on the current direction
-		
-    		/*
-    		if(this->sprite.getPosition().y > 150)
-    		{
-    			this->sprite.move(0, -1*speed); 	//move 
-    			cout<<"Moving up"<<endl;
-    		}
-    		*/
-    	//	cout<<this->sprite.getPosition().y<<endl;
+        {
     	}
     	else if(ghostIndex == 2)
     	{
-    		//this->sprite.move(2.5*speed, 2.5*speed);
     	}
-    	
-        //pthread_mutex_lock(&GhostMutex[ghostIndex]);
-       // this->sprite.move(1*speed,1*speed);
-        //pthread_mutex_unlock(&GhostMutex[ghostIndex]);
-        if(isPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y))
-        {
+
+        move(); // direction changed, now apply    
+
+        if(GhostPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y) && !P->PowerMode){
         	cout<<"Life lost"<<endl;
             P->Lives--;
         	P->sprite.setPosition(50,50);
+        }
+        else if(GhostPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y) && P->PowerMode){
+            this->sprite.setPosition(221,200);
+            this->direction = 0;
         }
     }
 
@@ -408,18 +430,36 @@ void* Ghost_Movement(void* arg)
     while (GameOpen) 
     {
         pthread_mutex_lock(&GhostMutex[ghostIndex]);
-        Ghosts[ghostIndex].move(ghostIndex);
+        Ghosts[ghostIndex].Directed_Movement_Ghost(ghostIndex);
         pthread_mutex_unlock(&GhostMutex[ghostIndex]);
         sf::sleep(sf::milliseconds(10));
     }
     pthread_exit(NULL);
 }
 
+void SetPowerMode(){
+    Texture* tex = new Texture;
+    for(int i = 0 ; i < 4; i++){
+        tex->loadFromFile("pacman-art/ghosts/blue_ghost.png");
+        Ghosts[i].sprite.setTexture(*tex);
+    }
+}
+
+void UnPowerMode(){
+    if(P->PowerMode){
+        if(P->powEnd <= timer ){
+            for(int i = 0 ; i < 4; i++){
+                Ghosts[i].sprite.setTexture(Ghosts[i].tex);
+            }
+            P->PowerMode = false;
+            cout<<"removing power mode!"<<endl;
+        }
+    }
+}
 
 void* updateFunction(void*)
 {
-    while(GameOpen)
-    {
+    while(GameOpen){
         P->move();
         sf::sleep(sf::milliseconds(10));
     }
@@ -432,8 +472,6 @@ void reSpawnPellets(float& timer, int& pelletCount){
         if(Normal_Pellets[i].eaten){
             if(Normal_Pellets[i].reappear <= timer){
                 Normal_Pellets[i].sprite.setPosition(sf::Vector2f(Normal_Pellets[i].x,Normal_Pellets[i].y));
-                cout<<"i "<<Normal_Pellets[i].sprite.getPosition().x<<" "<<Normal_Pellets[i].sprite.getPosition().y<<" am returning to my position"<<endl;
-                cout<<"because the time is now "<<timer<<endl;
                 Normal_Pellets[i].eaten = false;
             }
         }
@@ -442,14 +480,10 @@ void reSpawnPellets(float& timer, int& pelletCount){
 
 void SetMaze(sf::RenderWindow& window, int (maze)[21][29], sf::RectangleShape (wall)[])
 {
-
     int count = 0;
-    for (int y = 0; y < 21; ++y) 
-    {
-        for (int x = 0; x < 29; ++x) 
-        {
-            if (maze[y][x] == 1) 
-            {
+    for (int y = 0; y < 21; ++y) {
+        for (int x = 0; x < 29; ++x) {
+            if (maze[y][x] == 1) {
                 wall[count++].setPosition(x * 20, y * 20);
             }
         }
@@ -459,12 +493,9 @@ void SetMaze(sf::RenderWindow& window, int (maze)[21][29], sf::RectangleShape (w
 void DisplayMaze(sf::RenderWindow& window, int(maze)[21][29], sf::RectangleShape (wall)[])
 {
     int count = 0;
-    for (int y = 0; y < 21; ++y) 
-    {
-        for (int x = 0; x < 29; ++x) 
-        {
-            if (maze[y][x] == 1) 
-            {
+    for (int y = 0; y < 21; ++y) {
+        for (int x = 0; x < 29; ++x) {
+            if (maze[y][x] == 1) {
                 window.draw(wall[count++]);
             }
         }
@@ -474,13 +505,15 @@ void DisplayMaze(sf::RenderWindow& window, int(maze)[21][29], sf::RectangleShape
 void DisplayPellets(sf::RenderWindow& window, Pellets (Normal_Pellets)[], int& pelletCount)
 {
     int count = 0;
-    for( int i = 0; i < 21; i++)
-    {
+    for( int i = 0; i < 21; i++){
         for(int j = 0 ; j < 29 ; j++){
             if(maze[i][j]==0){
                 window.draw(Normal_Pellets[count++].sprite);
             }
         }
+    }
+    for(int i = 0; i< 5; i++){
+        window.draw(Fruits[i].sprite);
     }
 }
 
@@ -508,12 +541,15 @@ void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount){
                 Normal_Pellets[pelletCount].sprite.setPosition(sf::Vector2f((j * 20)-10,(i* 25)-35));
                 Normal_Pellets[pelletCount].x = Normal_Pellets[pelletCount].sprite.getPosition().x;
                 Normal_Pellets[pelletCount].y = Normal_Pellets[pelletCount].sprite.getPosition().y;                
-                cout<<Normal_Pellets[pelletCount].sprite.getPosition().x<<" "<<Normal_Pellets[pelletCount].sprite.getPosition().y<<endl;
                 pelletCount++;
             }
         }
     }
-    cout<<"pellcount: "<<pelletCount<<endl;
+    
+    Fruits[0].sprite.setPosition(80,360);
+    Fruits[1].sprite.setPosition(470,360);
+    Fruits[2].sprite.setPosition(40,110);
+    Fruits[3].sprite.setPosition(500,110);
 }
 
 
@@ -572,7 +608,6 @@ int main()
     pthread_mutex_init(&GhostMutex[3], NULL);
     pthread_create(&ghostThread[3], NULL, Ghost_Movement, (void*) &index4);
 
-    //window.setActive(false);
     pthread_t Player_ID = 0;
     pthread_create(&Player_ID,NULL,updateFunction,NULL);
     sf::Clock clock;
@@ -588,7 +623,7 @@ int main()
 
         while (window.pollEvent(event))
         {  
-            if (event.type == Event::Closed)
+            if (event.type == Event::Closed || P->Lives <= 0)
             {
                 CloseGame = true;
                 GameOpen = false;
@@ -601,6 +636,7 @@ int main()
 
         }
 
+        UnPowerMode();
         reSpawnPellets(timer,pelletCount);
         Score.setString("SCORE  " + std::to_string(P->score));
 
