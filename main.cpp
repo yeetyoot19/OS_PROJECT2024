@@ -3,11 +3,15 @@
 #include <pthread.h>
 #include <time.h>
 #include <cmath>
+#include <semaphore.h>
 #include <SFML/System/Clock.hpp>
 using namespace std;
 using namespace sf;
 
 void SetPowerMode();
+
+sem_t GhostKeys;
+sem_t GhostPermits;
 
 
 pthread_mutex_t Draw;
@@ -273,7 +277,7 @@ struct Ghost
     int direction;
     int x;
     int y;
-    bool inhouse;
+    bool isMoving;
     Ghost(std::string img, int x, int y)
     {
         this->tex.loadFromFile(img);
@@ -284,12 +288,12 @@ struct Ghost
         this->speed = 1.1;
         this->x = x;
         this->y = y;
-        this->inhouse = true;
+        this->isMoving = false;
     }
     
-    void checkInhouse(int a, int b){
-    	if(this->sprite.getPosition().x == a && this->sprite.getPosition().y == b) inhouse = 1;
-	}
+    // void checkInhouse(int a, int b){
+    // 	if(this->sprite.getPosition().x == a && this->sprite.getPosition().y == b) inhouse = 1;
+	// }
 
 	bool GhostPacCollision(int dx, int dy)
     {   
@@ -319,7 +323,7 @@ struct Ghost
     
     void Directed_Movement_Ghost(int ghostIndex)
     {
-    	if(ghostIndex == 0 )
+    	if(ghostIndex == 0 || ghostIndex == 2)
     	{
     		if(this->sprite.getPosition().x == 220 && this->sprite.getPosition().y == 210){ // move right
                 this->direction = 2; 
@@ -354,7 +358,7 @@ struct Ghost
             }
            //cout<<this->sprite.getPosition().x<<" "<<this->sprite.getPosition().y<<endl;
     	}
-    	else if(ghostIndex == 1){
+    	else if(ghostIndex == 1 || ghostIndex == 3){
             this->speed = 1;
             if(this->sprite.getPosition().x == 250 && this->sprite.getPosition().y == 210){ // move right
                 this->direction = 2;
@@ -414,6 +418,30 @@ struct Ghost
     {
         window.draw(this->sprite);
     }
+
+    bool HandleKeyPermit(){
+        bool HaveKey = false; bool HavePermit = false; int SpaceLeft = 1;
+
+        SpaceLeft = sem_trywait(&GhostKeys);
+        if(SpaceLeft == 0){
+            HaveKey  = 1;
+        }
+        SpaceLeft = sem_trywait(&GhostPermits);
+        if(SpaceLeft == 0){
+            HavePermit = 1;
+        }
+
+        if(HavePermit && HaveKey){
+            return true;
+        }
+        else if(HavePermit && !HaveKey){
+            sem_post(&GhostPermits);
+        }
+        else if(HaveKey && !HavePermit){
+            sem_post(&GhostKeys);
+        }
+        return false;
+    }
 };
 
 Ghost Ghosts[4]
@@ -430,8 +458,17 @@ void* Ghost_Movement(void* arg)
     while (GameOpen) 
     {
         pthread_mutex_lock(&GhostMutex[ghostIndex]);
-        Ghosts[ghostIndex].Directed_Movement_Ghost(ghostIndex);
+
+        if(Ghosts[ghostIndex].HandleKeyPermit()){
+            Ghosts[ghostIndex].isMoving = true;
+        }
+
         pthread_mutex_unlock(&GhostMutex[ghostIndex]);
+
+        if(Ghosts[ghostIndex].isMoving == true){
+            Ghosts[ghostIndex].Directed_Movement_Ghost(ghostIndex);
+        }
+
         sf::sleep(sf::milliseconds(10));
     }
     pthread_exit(NULL);
@@ -594,6 +631,8 @@ int main()
    SetPellets(Normal_Pellets,pelletCount);
 
     //enemy
+    sem_init(&GhostKeys,0,2);
+    sem_init(&GhostPermits,0,2);
     pthread_t ghostThread[4];
     int index_Ghost = 1;
 	int index2 = 2;
