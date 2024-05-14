@@ -18,7 +18,6 @@ pthread_mutex_t ReadWriteMutex;
 
 float timer = 0;
 float timing;
-float speedtimer = 0;
 
 int maze[21][29] = 
 {
@@ -238,11 +237,16 @@ struct Player
         }
         if(FruitPacCollision(Fruits,5))
         {
-            this->PowerMode = true;
-            this->powStart = timer;
-            this->powEnd = powStart + 3;
-            cout<<"power mode on! "<<this->powStart <<" ending: "<<this->powEnd<<endl;
-            SetPowerMode();
+            if(this->PowerMode){
+                this->powEnd += 3; // powermode has been EXTENDED
+            }
+            else{
+                this->PowerMode = true;
+                this->powStart = timer;
+                this->powEnd = powStart + 3;
+                cout<<"power mode on! "<<this->powStart <<" ending: "<<this->powEnd<<endl;
+                SetPowerMode();
+            }
         }
         
         pacx = this->sprite.getPosition().x;
@@ -280,8 +284,6 @@ struct Player
             {
 
                 Normal_Pellets[i].sprite.setPosition(660,660);
-                Normal_Pellets[i].disappear = timer;
-                Normal_Pellets[i].reappear = Normal_Pellets[i].disappear + 5;
                 Normal_Pellets[i].eaten = true;
                 return 1;
             }
@@ -304,8 +306,10 @@ struct Player
             this->sprite.getPosition().y  > Fruits[i].sprite.getPosition().y - 12)
             {
                
-                Fruits[i].sprite.setPosition(660,660);
                 Fruits[i].eaten = true;
+                Fruits[i].sprite.setPosition(660,660);
+                Fruits[i].disappear = timer;
+                Fruits[i].reappear = Fruits[i].disappear + 7;
                 return 1;
             }
 
@@ -602,12 +606,13 @@ void* updateFunction(void*)
     pthread_exit(NULL);
 }
 
-void reSpawnPellets(float& timer, int& pelletCount){
-    for( int i = 0; i < pelletCount ; i++){
-        if(Normal_Pellets[i].eaten){
-            if(Normal_Pellets[i].reappear <= timer){
-                Normal_Pellets[i].sprite.setPosition(sf::Vector2f(Normal_Pellets[i].x,Normal_Pellets[i].y));
-                Normal_Pellets[i].eaten = false;
+void reSpawnPellets(float& timer, int& fruitCount){
+
+    for( int i = 0 ; i < fruitCount; i++){
+        if(Fruits[i].eaten){
+            if(Fruits[i].reappear <= timer){
+                Fruits[i].sprite.setPosition(sf::Vector2f(Fruits[i].x,Fruits[i].y));
+                Fruits[i].eaten = false;
             }
         }
     }
@@ -660,7 +665,7 @@ void DrawLife (sf::RenderWindow& window, Sprite(Lifes)[]){
     }
 }
 
-void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount){
+void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount, int& fruitCount){
     for( int i = 0; i < 21; i++){
         if(i==1 || i==19 || i == 18 || i==17) continue;
         for(int j = 0 ; j < 29 ; j++){
@@ -682,9 +687,14 @@ void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount){
     }
     
     Fruits[0].sprite.setPosition(80,360);
+    Fruits[0].x = 80; Fruits[0].y = 360;
     Fruits[1].sprite.setPosition(470,360);
+    Fruits[1].x = 470; Fruits[1].y = 360;
     Fruits[2].sprite.setPosition(40,110);
+    Fruits[2].x = 40; Fruits[2].y = 110;
     Fruits[3].sprite.setPosition(500,110);
+    Fruits[3].x = 500; Fruits[3].y = 110;
+    fruitCount = 5;
 }
 
 
@@ -730,7 +740,8 @@ int main()
 
     //pellet
    int pelletCount=0;
-   SetPellets(Normal_Pellets,pelletCount);
+   int fruitCount = 0;
+   SetPellets(Normal_Pellets,pelletCount, fruitCount);
 
     //enemy
     pthread_t ghostThread[4];
@@ -776,7 +787,7 @@ int main()
         }
 
         UnPowerMode();
-        reSpawnPellets(timer,pelletCount);
+        reSpawnPellets(timer,fruitCount);
         Score.setString("SCORE  " + std::to_string(P->score));
 
         window.clear();
