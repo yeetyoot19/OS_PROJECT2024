@@ -2,7 +2,6 @@
 #include <SFML/Graphics.hpp>            
 #include <pthread.h>
 #include <time.h>
-#include <math.h>  
 #include <cmath>
 #include <semaphore.h>
 #include <SFML/System/Clock.hpp>
@@ -19,6 +18,7 @@ pthread_mutex_t ReadWriteMutex;
 
 float timer = 0;
 float timing;
+
 
 int maze[21][29] = 
 {
@@ -50,7 +50,7 @@ bool GameOpen = true;
 int pacx;
 int pacy;
 
-float speedbst[4] = {0.75,0.75,0.75,0.75};
+//float speedbst[4] = {1,1,1,1};
 
 
 struct Pellets
@@ -238,16 +238,11 @@ struct Player
         }
         if(FruitPacCollision(Fruits,5))
         {
-            if(this->PowerMode){
-                this->powEnd += 3; // powermode has been EXTENDED
-            }
-            else{
-                this->PowerMode = true;
-                this->powStart = timer;
-                this->powEnd = powStart + 3;
-                cout<<"power mode on! "<<this->powStart <<" ending: "<<this->powEnd<<endl;
-                SetPowerMode();
-            }
+            this->PowerMode = true;
+            this->powStart = timer;
+            this->powEnd = powStart + 3;
+            cout<<"power mode on! "<<this->powStart <<" ending: "<<this->powEnd<<endl;
+            SetPowerMode();
         }
         
         pacx = this->sprite.getPosition().x;
@@ -285,6 +280,8 @@ struct Player
             {
 
                 Normal_Pellets[i].sprite.setPosition(660,660);
+                Normal_Pellets[i].disappear = timer;
+                Normal_Pellets[i].reappear = Normal_Pellets[i].disappear + 5;
                 Normal_Pellets[i].eaten = true;
                 return 1;
             }
@@ -307,10 +304,8 @@ struct Player
             this->sprite.getPosition().y  > Fruits[i].sprite.getPosition().y - 12)
             {
                
-                Fruits[i].eaten = true;
                 Fruits[i].sprite.setPosition(660,660);
-                Fruits[i].disappear = timer;
-                Fruits[i].reappear = Fruits[i].disappear + 7;
+                Fruits[i].eaten = true;
                 return 1;
             }
 
@@ -333,6 +328,7 @@ struct Ghost
     int y;
     bool isMoving;
     bool hasBoost;
+    float speedbst;
     Ghost(std::string img, int x, int y)
     {
         this->tex.loadFromFile(img);
@@ -345,6 +341,7 @@ struct Ghost
         this->y = y;
         this->isMoving = false;
         this->hasBoost = false;
+        this->speedbst = 1.0f;
     }
     
 
@@ -359,18 +356,19 @@ struct Ghost
         return 0;
     }
 
-    void move(int index){
+    void move(int index)
+    {
         if(this->direction == 1){ //left 
-            this->sprite.move(-1*speed*speedbst[index],0);
+            this->sprite.move(-1*speed*speedbst,0);
         }
         if(this->direction == 2){ // right
-            this->sprite.move(1*speed*speedbst[index],0);
+            this->sprite.move(1*speed*speedbst,0);
         }
         if(this->direction == 3){ //up
-            this->sprite.move(0,-1*speed*speedbst[index]);
+            this->sprite.move(0,-1*speed*speedbst);
         }
         if(this->direction == 4){ //down
-            this->sprite.move(0,1*speed*speedbst[index]);
+            this->sprite.move(0,1*speed*speedbst);
         }
     }
     
@@ -414,42 +412,43 @@ struct Ghost
            //cout<<this->sprite.getPosition().x<<" "<<this->sprite.getPosition().y<<endl;
     	}
     	else if(ghostIndex == 1 || ghostIndex == 3){
-            
-            if(ceil(this->sprite.getPosition().x) == 250 && ceil(this->sprite.getPosition().y) == 210){ // move right
+            this->speed = 1;
+            if(this->sprite.getPosition().x == 250 && this->sprite.getPosition().y == 210){ // move right
                 this->direction = 2;
             }
-            else if(ceil(this->sprite.getPosition().x) == 280 && ceil(this->sprite.getPosition().y) == 210) { //move down
+            else if(this->sprite.getPosition().x == 280 && this->sprite.getPosition().y == 210) { //move down
                 this->direction = 4;
             }
-    		else if(ceil(this->sprite.getPosition().x) == 280 && ceil(this->sprite.getPosition().y) == 270){ //move right
+    		else if(this->sprite.getPosition().x == 280 && this->sprite.getPosition().y == 270){ //move right
     			this->direction = 2;
     		}
-            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 270){ // move up
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 270){ // move up
                 this->direction = 3;
             }
-            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 185){ // move left
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 185){ // move left
                 this->direction = 1;
             }
-            else if(ceil(this->sprite.getPosition().x) == 425 && ceil(this->sprite.getPosition().y) == 185){ // move up
+            else if(this->sprite.getPosition().x == 425 && this->sprite.getPosition().y == 185){ // move up
                 this->direction = 3;
             }
-            else if(ceil(this->sprite.getPosition().x) == 425 && ceil(this->sprite.getPosition().y) == 110){ // move right
+            else if(this->sprite.getPosition().x == 425 && this->sprite.getPosition().y == 110){ // move right
                 this->direction = 2;
             }
-            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 110){ // move up
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 110){ // move up
                 this->direction = 3;
             }
-            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 30){ // move left
+            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 30){ // move left
                 this->direction = 1;
             }
-            else if(ceil(this->sprite.getPosition().x) == 423 && ceil(this->sprite.getPosition().y) == 30){ // move down
+            else if(this->sprite.getPosition().x == 423 && this->sprite.getPosition().y == 30){ // move down
                 this->direction = 4;
             }
-            else if(ceil(this->sprite.getPosition().x) == 423 && ceil(this->sprite.getPosition().y) == 270){ // move right
+            else if(this->sprite.getPosition().x == 423 && this->sprite.getPosition().y == 270){ // move right
                 this->direction = 2;
             }
     	}
 
+	
         move(ghostIndex); // direction changed, now apply    
 
         pthread_mutex_lock(&ReadWriteMutex);
@@ -502,44 +501,66 @@ struct Ghost
         }
         return false;
     }
-    bool HandleBoost()
-    {
-    	bool HasBoost = false;
-    	HasBoost = !sem_trywait(&SpeedBoost);
-    	if(HasBoost)
-    	{
-    		return true;
-    	}
-    	return false;
-    }
+    
 
     void HandleKeyPermitRe()
     {
         sem_post(&GhostKeys);
         sem_post(&GhostPermits);
     }
-    void HandleBoostRe()
-    {
-    	sem_post(&SpeedBoost);
-    }
+    
+    bool HandleBoost()
+	{
+		bool HasBoost = false;
+		HasBoost = !sem_trywait(&SpeedBoost);
+		if(HasBoost)
+		{
+			
+			return true;
+		}
+		return false;
+	}
+
+ 	void HandleBoostRe(float& speedtimer)
+	 {
+		const float releaseInterval = 50.0f;
+		cout<<"speedtimer: "<<speedtimer<<endl;
+		
+		if(speedtimer >= releaseInterval)
+		{
+			cout<<"Releasing boost"<<endl;
+			sem_post(&SpeedBoost);
+			speedbst = 1;
+			speedtimer=0.0f;
+			
+		}
+		
+	}
+   
 };
 
-Ghost Ghosts[4]
+
+Ghost Ghosts[4]	
 { 
 	Ghost("pacman-art/ghosts/blinky.png", 220, 210),
     Ghost("pacman-art/ghosts/clyde.png", 250, 210), 
     Ghost("pacman-art/ghosts/inky.png", 310, 210),
     Ghost("pacman-art/ghosts/pinky.png", 280, 210)
 };
-
+float speedtimer = 0.0f;
 void* Ghost_Movement(void* arg)
 {
     int ghostIndex = *((int*)arg)-1;
-	
+	sf::Clock clock;
+	float time;
     while (GameOpen) 
     {
     	pthread_mutex_lock(&GhostMutex[ghostIndex]);
-		 cout<<"i am "<<ghostIndex<<" and i am checking"<<endl;
+		 //cout<<"i am "<<ghostIndex<<" and i am checking"<<endl;
+		
+		time = clock.getElapsedTime().asSeconds();
+		speedtimer+= time;
+		
 		if(Ghosts[ghostIndex].HandleKeyPermit())
 		{
 		    Ghosts[ghostIndex].isMoving = true;
@@ -550,18 +571,26 @@ void* Ghost_Movement(void* arg)
 		}
 		
 		pthread_mutex_unlock(&GhostMutex[ghostIndex]);
-
 		 if(Ghosts[ghostIndex].hasBoost == true)
         {
         	cout<<"I am "<<ghostIndex<<" and I have boost"<<endl;
-        	speedbst[ghostIndex] = 1;
+        	Ghosts[ghostIndex].speedbst = 2;
         }
+        Ghosts[ghostIndex].HandleBoostRe(speedtimer);
         if(Ghosts[ghostIndex].isMoving == true)
         {
-            cout<<"hello i am "<<ghostIndex<<" and i have the permit"<<endl;
+           // cout<<"hello i am "<<ghostIndex<<" and i have the permit"<<endl;
             Ghosts[ghostIndex].Directed_Movement_Ghost(ghostIndex);
         }
         
+       
+        /*
+        else
+        {
+        	speedbst[ghostIndex] = 0.5;
+        	cout<<"I am "<<ghostIndex<<" and i do not have boost"<<endl;
+        }
+        */
         sf::sleep(sf::milliseconds(10));
     }
     pthread_exit(NULL);
@@ -600,13 +629,12 @@ void* updateFunction(void*)
     pthread_exit(NULL);
 }
 
-void reSpawnPellets(float& timer, int& fruitCount){
-
-    for( int i = 0 ; i < fruitCount; i++){
-        if(Fruits[i].eaten){
-            if(Fruits[i].reappear <= timer){
-                Fruits[i].sprite.setPosition(sf::Vector2f(Fruits[i].x,Fruits[i].y));
-                Fruits[i].eaten = false;
+void reSpawnPellets(float& timer, int& pelletCount){
+    for( int i = 0; i < pelletCount ; i++){
+        if(Normal_Pellets[i].eaten){
+            if(Normal_Pellets[i].reappear <= timer){
+                Normal_Pellets[i].sprite.setPosition(sf::Vector2f(Normal_Pellets[i].x,Normal_Pellets[i].y));
+                Normal_Pellets[i].eaten = false;
             }
         }
     }
@@ -659,7 +687,7 @@ void DrawLife (sf::RenderWindow& window, Sprite(Lifes)[]){
     }
 }
 
-void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount, int& fruitCount){
+void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount){
     for( int i = 0; i < 21; i++){
         if(i==1 || i==19 || i == 18 || i==17) continue;
         for(int j = 0 ; j < 29 ; j++){
@@ -681,14 +709,9 @@ void SetPellets(Pellets (Normal_Pellets)[],int& pelletCount, int& fruitCount){
     }
     
     Fruits[0].sprite.setPosition(80,360);
-    Fruits[0].x = 80; Fruits[0].y = 360;
     Fruits[1].sprite.setPosition(470,360);
-    Fruits[1].x = 470; Fruits[1].y = 360;
     Fruits[2].sprite.setPosition(40,110);
-    Fruits[2].x = 40; Fruits[2].y = 110;
     Fruits[3].sprite.setPosition(500,110);
-    Fruits[3].x = 500; Fruits[3].y = 110;
-    fruitCount = 5;
 }
 
 
@@ -734,8 +757,7 @@ int main()
 
     //pellet
    int pelletCount=0;
-   int fruitCount = 0;
-   SetPellets(Normal_Pellets,pelletCount, fruitCount);
+   SetPellets(Normal_Pellets,pelletCount);
 
     //enemy
     pthread_t ghostThread[4];
@@ -761,6 +783,7 @@ int main()
         clock.restart();
         srand(time(0));
         timer += timing;
+        speedtimer += timing;
         //cout<<"timer: "<<timer<<endl;
 
         sf::Event event;
@@ -781,7 +804,8 @@ int main()
         }
 
         UnPowerMode();
-        reSpawnPellets(timer,fruitCount);
+        reSpawnPellets(timer,pelletCount);
+        
         Score.setString("SCORE  " + std::to_string(P->score));
 
         window.clear();
@@ -799,6 +823,7 @@ int main()
         DrawLife(window,Lifes);
        	for(int i=0; i<4; i++)
 		{
+			
 			pthread_mutex_lock(&GhostMutex[i]);
 			Ghosts[i].draw(window);
 			pthread_mutex_unlock(&GhostMutex[i]);
