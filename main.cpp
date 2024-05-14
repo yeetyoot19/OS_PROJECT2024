@@ -5,6 +5,7 @@
 #include <cmath>
 #include <semaphore.h>
 #include <SFML/System/Clock.hpp>
+#include <unistd.h>
 using namespace std;
 using namespace sf;
 
@@ -12,11 +13,12 @@ void SetPowerMode();
 
 sem_t GhostKeys;
 sem_t GhostPermits;
+sem_t SpeedBoost;
+pthread_mutex_t ReadWriteMutex;
 
-
-pthread_mutex_t Draw;
 float timer = 0;
 float timing;
+float speedtimer = 0;
 
 int maze[21][29] = 
 {
@@ -47,6 +49,8 @@ sf::RectangleShape wall[250];
 bool GameOpen = true;
 int pacx;
 int pacy;
+
+float speedbst[4] = {0.5,0.5,0.5,0.5};
 
 
 struct Pellets
@@ -125,23 +129,33 @@ struct Player
         this->PowerMode = false;
     }
 
+	//readers
     float getTop()
     {    
+
         return this->sprite.getPosition().y - 8;
+
     }
 
     float getbottom()
     {
+
         return this->sprite.getPosition().y + 8;
-    }
+        
+   	}
 
     float getRight()
-    {   
+    {  
+       
         return this->sprite.getPosition().x + 8;
+       
+               
     } 
     float getLeft()
     {    
+      
         return this->sprite.getPosition().x - 8;
+               
     }
 
 
@@ -160,59 +174,81 @@ struct Player
         return 0;
     } 
 
+	//writer
     void move()
     {
         pthread_mutex_lock(&PlayerMutex);
+         
         if(direction == 1) // left
         {
             this->tex.loadFromFile("pacman-art/pacman-left/1.png");
             this->sprite.setTexture(this->tex);
+
             if( !isWallCollision(this->sprite.getPosition().x-1,this->sprite.getPosition().y) )
             {
+                pthread_mutex_lock(&ReadWriteMutex);
                 this->sprite.move(-1*speed,0);
+                pthread_mutex_unlock(&ReadWriteMutex);
             }
+
         }
         else if(direction == 2)
         {
             this->tex.loadFromFile("pacman-art/pacman-right/1.png");
             this->sprite.setTexture(this->tex);
+
             if( !isWallCollision(this->sprite.getPosition().x+1,this->sprite.getPosition().y) )
             {
+            	pthread_mutex_lock(&ReadWriteMutex);
                 this->sprite.move(1*speed,0); // right
+                pthread_mutex_unlock(&ReadWriteMutex);
             }
         }
         else if(direction == 3)
         {
             this->tex.loadFromFile("pacman-art/pacman-up/1.png");
             this->sprite.setTexture(this->tex);
+
             if( !isWallCollision(this->sprite.getPosition().x,this->sprite.getPosition().y-1) )
             {
+            	pthread_mutex_lock(&ReadWriteMutex);
                 this->sprite.move(0,-1*speed); // up
+                pthread_mutex_unlock(&ReadWriteMutex);
             }
+
         }
         else if(direction == 4)
         {
+        	
             this->tex.loadFromFile("pacman-art/pacman-down/1.png");
             this->sprite.setTexture(this->tex);
+
             if( !isWallCollision(this->sprite.getPosition().x,this->sprite.getPosition().y+1) )
             {
+            	pthread_mutex_lock(&ReadWriteMutex);
                 this->sprite.move(0,1*speed); // down
+                pthread_mutex_unlock(&ReadWriteMutex);
             }
+
         }
-        if(PelletPacCollision(Normal_Pellets,370)){
+        if(PelletPacCollision(Normal_Pellets,370))
+        {
             this->score++;
             cout<<score<<endl;
         }
-        if(FruitPacCollision(Fruits,5)){
+        if(FruitPacCollision(Fruits,5))
+        {
             this->PowerMode = true;
             this->powStart = timer;
             this->powEnd = powStart + 3;
             cout<<"power mode on! "<<this->powStart <<" ending: "<<this->powEnd<<endl;
             SetPowerMode();
         }
+        
         pacx = this->sprite.getPosition().x;
         pacy = this->sprite.getPosition().y;
         pthread_mutex_unlock(&PlayerMutex);
+        
     }
 
     void GotUserKeyPress(sf::Keyboard::Key key) 
@@ -227,39 +263,52 @@ struct Player
         if (key == Keyboard::Down) 
             this->direction = 4; 
         pthread_mutex_unlock(&PlayerMutex);
+        
     }
 
-    bool PelletPacCollision(Pellets (&NormalPellets)[], int pelletCount){
+	//reader
+    bool PelletPacCollision(Pellets (NormalPellets)[370], int pelletCount)
+    {
 
-        for( int i = 0; i < pelletCount; i++){
+        for( int i = 0; i < pelletCount; i++)
+        {
+            
             if(this->sprite.getPosition().x > (NormalPellets[i].sprite.getPosition().x - 12) &&
             this->sprite.getPosition().x < (NormalPellets[i].sprite.getPosition().x + 12) &&
             this->sprite.getPosition().y  < (NormalPellets[i].sprite.getPosition().y + 12) &&
             this->sprite.getPosition().y  > NormalPellets[i].sprite.getPosition().y - 12)
             {
+
                 Normal_Pellets[i].sprite.setPosition(660,660);
                 Normal_Pellets[i].disappear = timer;
                 Normal_Pellets[i].reappear = Normal_Pellets[i].disappear + 5;
                 Normal_Pellets[i].eaten = true;
                 return 1;
             }
+
         }
         return 0;
     }
 
+//reader
+    bool FruitPacCollision(Pellets (Fruits)[5], int fruitCount)
+    {
 
-    bool FruitPacCollision(Pellets (&Fruits)[], int fruitCount){
-
-        for( int i = 0; i < fruitCount; i++){
+        for( int i = 0; i < fruitCount; i++)
+        {
+        	
+            
             if(this->sprite.getPosition().x > (Fruits[i].sprite.getPosition().x - 12) &&
             this->sprite.getPosition().x < (Fruits[i].sprite.getPosition().x + 12) &&
             this->sprite.getPosition().y  < (Fruits[i].sprite.getPosition().y + 12) &&
             this->sprite.getPosition().y  > Fruits[i].sprite.getPosition().y - 12)
             {
+               
                 Fruits[i].sprite.setPosition(660,660);
                 Fruits[i].eaten = true;
                 return 1;
             }
+
         }
         return 0;
     }
@@ -278,6 +327,7 @@ struct Ghost
     int x;
     int y;
     bool isMoving;
+    bool hasBoost;
     Ghost(std::string img, int x, int y)
     {
         this->tex.loadFromFile(img);
@@ -289,11 +339,9 @@ struct Ghost
         this->x = x;
         this->y = y;
         this->isMoving = false;
+        this->hasBoost = false;
     }
     
-    // void checkInhouse(int a, int b){
-    // 	if(this->sprite.getPosition().x == a && this->sprite.getPosition().y == b) inhouse = 1;
-	// }
 
 	bool GhostPacCollision(int dx, int dy)
     {   
@@ -306,26 +354,28 @@ struct Ghost
         return 0;
     }
 
-    void move(){
+    void move(int index){
         if(this->direction == 1){ //left 
-            this->sprite.move(-1*speed,0);
+            this->sprite.move(-1*speed*speedbst[index],0);
         }
         if(this->direction == 2){ // right
-            this->sprite.move(1*speed,0);
+            this->sprite.move(1*speed*speedbst[index],0);
         }
         if(this->direction == 3){ //up
-            this->sprite.move(0,-1*speed);
+            this->sprite.move(0,-1*speed*speedbst[index]);
         }
         if(this->direction == 4){ //down
-            this->sprite.move(0,1*speed);
+            this->sprite.move(0,1*speed*speedbst[index]);
         }
     }
     
+    //reader function
     void Directed_Movement_Ghost(int ghostIndex)
     {
     	if(ghostIndex == 0 || ghostIndex == 2)
     	{
-    		if(this->sprite.getPosition().x == 220 && this->sprite.getPosition().y == 210){ // move right
+    		if(this->sprite.getPosition().x == 220 && this->sprite.getPosition().y == 210)
+    		{ // move right
                 this->direction = 2; 
     		}
     		 
@@ -394,53 +444,78 @@ struct Ghost
                 this->direction = 2;
             }
     	}
-    	else if(ghostIndex == 3)
-        {
-    	}
-    	else if(ghostIndex == 2)
-    	{
-    	}
 
-        move(); // direction changed, now apply    
+        move(ghostIndex); // direction changed, now apply    
 
+        pthread_mutex_lock(&ReadWriteMutex);
         if(GhostPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y) && !P->PowerMode){
+        	
         	cout<<"Life lost"<<endl;
             P->Lives--;
-        	P->sprite.setPosition(50,50);
+        	P->sprite.setPosition(200,40);
         }
-        else if(GhostPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y) && P->PowerMode){
-            this->sprite.setPosition(221,200);
-            this->direction = 0;
+        else if(GhostPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y) && P->PowerMode)
+        {
+            
+            this->isMoving = false;
+            this->sprite.setPosition(this->x,this->y);
+            
+            sf::sleep(sf::milliseconds(100));
+            this->HandleKeyPermitRe();
+            sf::sleep(sf::milliseconds(100));
         }
+        pthread_mutex_unlock(&ReadWriteMutex);
+        
     }
 
     void draw(sf::RenderWindow& window)
     {
         window.draw(this->sprite);
     }
+    bool HandleKeyPermit()
+    {
+        bool HaveKey = false; 
+        bool HavePermit = false;
+       
+        HaveKey = !sem_trywait(&GhostKeys);
 
-    bool HandleKeyPermit(){
-        bool HaveKey = false; bool HavePermit = false; int SpaceLeft = 1;
+        HavePermit = !sem_trywait(&GhostPermits);
 
-        SpaceLeft = sem_trywait(&GhostKeys);
-        if(SpaceLeft == 0){
-            HaveKey  = 1;
-        }
-        SpaceLeft = sem_trywait(&GhostPermits);
-        if(SpaceLeft == 0){
-            HavePermit = 1;
-        }
-
-        if(HavePermit && HaveKey){
+        if(HavePermit && HaveKey)
+        {
             return true;
         }
-        else if(HavePermit && !HaveKey){
+        else if(HavePermit)
+        {
             sem_post(&GhostPermits);
+            return false;
         }
-        else if(HaveKey && !HavePermit){
+        else if(HaveKey)
+        {
             sem_post(&GhostKeys);
+            return false;
         }
         return false;
+    }
+    bool HandleBoost()
+    {
+    	bool HasBoost = false;
+    	HasBoost = !sem_trywait(&SpeedBoost);
+    	if(HasBoost)
+    	{
+    		return true;
+    	}
+    	return false;
+    }
+
+    void HandleKeyPermitRe()
+    {
+        sem_post(&GhostKeys);
+        sem_post(&GhostPermits);
+    }
+    void HandleBoostRe()
+    {
+    	sem_post(&SpeedBoost);
     }
 };
 
@@ -455,26 +530,47 @@ Ghost Ghosts[4]
 void* Ghost_Movement(void* arg)
 {
     int ghostIndex = *((int*)arg)-1;
+	
     while (GameOpen) 
     {
-        pthread_mutex_lock(&GhostMutex[ghostIndex]);
-
-        if(Ghosts[ghostIndex].HandleKeyPermit()){
-            Ghosts[ghostIndex].isMoving = true;
+    	pthread_mutex_lock(&GhostMutex[ghostIndex]);
+		 cout<<"i am "<<ghostIndex<<" and i am checking"<<endl;
+		if(Ghosts[ghostIndex].HandleKeyPermit())
+		{
+		    Ghosts[ghostIndex].isMoving = true;
+		}
+		if(Ghosts[ghostIndex].HandleBoost())
+		{
+			Ghosts[ghostIndex].hasBoost = true;
+		}
+		
+		pthread_mutex_unlock(&GhostMutex[ghostIndex]);
+		 if(Ghosts[ghostIndex].hasBoost == true)
+        {
+        	cout<<"I am "<<ghostIndex<<" and I have boost"<<endl;
+        	speedbst[ghostIndex] = 1;
         }
-
-        pthread_mutex_unlock(&GhostMutex[ghostIndex]);
-
-        if(Ghosts[ghostIndex].isMoving == true){
+        if(Ghosts[ghostIndex].isMoving == true)
+        {
+            cout<<"hello i am "<<ghostIndex<<" and i have the permit"<<endl;
             Ghosts[ghostIndex].Directed_Movement_Ghost(ghostIndex);
         }
-
+        
+       
+        /*
+        else
+        {
+        	speedbst[ghostIndex] = 0.5;
+        	cout<<"I am "<<ghostIndex<<" and i do not have boost"<<endl;
+        }
+        */
         sf::sleep(sf::milliseconds(10));
     }
     pthread_exit(NULL);
 }
 
-void SetPowerMode(){
+void SetPowerMode()
+{
     Texture* tex = new Texture;
     for(int i = 0 ; i < 4; i++){
         tex->loadFromFile("pacman-art/ghosts/blue_ghost.png");
@@ -494,9 +590,11 @@ void UnPowerMode(){
     }
 }
 
+//Writer thread : writes pacman positions
 void* updateFunction(void*)
 {
-    while(GameOpen){
+    while(GameOpen)
+    {
         P->move();
         sf::sleep(sf::milliseconds(10));
     }
@@ -554,7 +652,7 @@ void DisplayPellets(sf::RenderWindow& window, Pellets (Normal_Pellets)[], int& p
     }
 }
 
-void DrawLife (sf::RenderWindow& window, Sprite(&Lifes)[]){
+void DrawLife (sf::RenderWindow& window, Sprite(Lifes)[]){
     for(int i = 0 ; i < P->Lives; i++){
         Lifes[i].setPosition(400+i*40,440);
         Lifes[i].setScale(2,2);
@@ -596,6 +694,10 @@ int main()
     bool CloseGame = false;
     sf::RenderWindow window(sf::VideoMode(590,500), "Pacman");
     pthread_mutex_init(&PlayerMutex ,NULL);
+    sem_init(&GhostKeys,0,2);
+    sem_init(&GhostPermits,0,2);
+    sem_init(&SpeedBoost,0,2);
+    pthread_mutex_init(&ReadWriteMutex ,NULL);  
     
     //score
     Text Score;
@@ -631,8 +733,6 @@ int main()
    SetPellets(Normal_Pellets,pelletCount);
 
     //enemy
-    sem_init(&GhostKeys,0,2);
-    sem_init(&GhostPermits,0,2);
     pthread_t ghostThread[4];
     int index_Ghost = 1;
 	int index2 = 2;
@@ -681,10 +781,12 @@ int main()
 
         window.clear();
 
-		pthread_mutex_lock(&Draw);
+       
+		
         pthread_mutex_lock(&PlayerMutex);
         window.draw(P->sprite);
         pthread_mutex_unlock(&PlayerMutex);
+      
 
         DisplayMaze(window,maze,wall);
         DisplayPellets(window,Normal_Pellets,pelletCount);
@@ -696,8 +798,7 @@ int main()
 			Ghosts[i].draw(window);
 			pthread_mutex_unlock(&GhostMutex[i]);
 		}
-		pthread_mutex_unlock(&Draw);
-
+		
         window.display();
     }
 
