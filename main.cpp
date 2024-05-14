@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>            
 #include <pthread.h>
 #include <time.h>
+#include <math.h>  
 #include <cmath>
 #include <semaphore.h>
 #include <SFML/System/Clock.hpp>
@@ -49,7 +50,7 @@ bool GameOpen = true;
 int pacx;
 int pacy;
 
-float speedbst[4] = {0.5,0.5,0.5,0.5};
+float speedbst[4] = {0.75,0.75,0.75,0.75};
 
 
 struct Pellets
@@ -413,38 +414,38 @@ struct Ghost
            //cout<<this->sprite.getPosition().x<<" "<<this->sprite.getPosition().y<<endl;
     	}
     	else if(ghostIndex == 1 || ghostIndex == 3){
-            this->speed = 1;
-            if(this->sprite.getPosition().x == 250 && this->sprite.getPosition().y == 210){ // move right
+            
+            if(ceil(this->sprite.getPosition().x) == 250 && ceil(this->sprite.getPosition().y) == 210){ // move right
                 this->direction = 2;
             }
-            else if(this->sprite.getPosition().x == 280 && this->sprite.getPosition().y == 210) { //move down
+            else if(ceil(this->sprite.getPosition().x) == 280 && ceil(this->sprite.getPosition().y) == 210) { //move down
                 this->direction = 4;
             }
-    		else if(this->sprite.getPosition().x == 280 && this->sprite.getPosition().y == 270){ //move right
+    		else if(ceil(this->sprite.getPosition().x) == 280 && ceil(this->sprite.getPosition().y) == 270){ //move right
     			this->direction = 2;
     		}
-            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 270){ // move up
+            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 270){ // move up
                 this->direction = 3;
             }
-            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 185){ // move left
+            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 185){ // move left
                 this->direction = 1;
             }
-            else if(this->sprite.getPosition().x == 425 && this->sprite.getPosition().y == 185){ // move up
+            else if(ceil(this->sprite.getPosition().x) == 425 && ceil(this->sprite.getPosition().y) == 185){ // move up
                 this->direction = 3;
             }
-            else if(this->sprite.getPosition().x == 425 && this->sprite.getPosition().y == 110){ // move right
+            else if(ceil(this->sprite.getPosition().x) == 425 && ceil(this->sprite.getPosition().y) == 110){ // move right
                 this->direction = 2;
             }
-            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 110){ // move up
+            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 110){ // move up
                 this->direction = 3;
             }
-            else if(this->sprite.getPosition().x == 510 && this->sprite.getPosition().y == 30){ // move left
+            else if(ceil(this->sprite.getPosition().x) == 510 && ceil(this->sprite.getPosition().y) == 30){ // move left
                 this->direction = 1;
             }
-            else if(this->sprite.getPosition().x == 423 && this->sprite.getPosition().y == 30){ // move down
+            else if(ceil(this->sprite.getPosition().x) == 423 && ceil(this->sprite.getPosition().y) == 30){ // move down
                 this->direction = 4;
             }
-            else if(this->sprite.getPosition().x == 423 && this->sprite.getPosition().y == 270){ // move right
+            else if(ceil(this->sprite.getPosition().x) == 423 && ceil(this->sprite.getPosition().y) == 270){ // move right
                 this->direction = 2;
             }
     	}
@@ -549,6 +550,7 @@ void* Ghost_Movement(void* arg)
 		}
 		
 		pthread_mutex_unlock(&GhostMutex[ghostIndex]);
+
 		 if(Ghosts[ghostIndex].hasBoost == true)
         {
         	cout<<"I am "<<ghostIndex<<" and I have boost"<<endl;
@@ -560,14 +562,6 @@ void* Ghost_Movement(void* arg)
             Ghosts[ghostIndex].Directed_Movement_Ghost(ghostIndex);
         }
         
-       
-        /*
-        else
-        {
-        	speedbst[ghostIndex] = 0.5;
-        	cout<<"I am "<<ghostIndex<<" and i do not have boost"<<endl;
-        }
-        */
         sf::sleep(sf::milliseconds(10));
     }
     pthread_exit(NULL);
