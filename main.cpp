@@ -8,6 +8,7 @@
 #include <semaphore.h>
 #include <SFML/System/Clock.hpp>
 #include <unistd.h>
+//#include "menu.h"
 using namespace std;
 using namespace sf;
 
@@ -90,6 +91,7 @@ struct Pellets
     }
 
 };
+
 Pellets Normal_Pellets[370];
 Pellets Fruits[5]{
     Pellets("pacman-art/other/strawberry.png"),
@@ -100,6 +102,7 @@ Pellets Fruits[5]{
 };
 
 pthread_mutex_t PlayerMutex;
+
 struct Player
 {
     Sprite sprite;
@@ -130,7 +133,8 @@ struct Player
         
         this->PowerMode = false;
         sf::SoundBuffer buffer1;
-        if(!buffer1.loadFromFile("eat-sound.wav")){
+        if(!buffer1.loadFromFile("eat-sound.wav"))
+        {//incase file not loaded
             std::cout<<"ERROR NO SOUND EFFECT"<<std::endl;
         }
         sf::Sound soundeffect;
@@ -152,14 +156,17 @@ struct Player
     {  
         return this->sprite.getPosition().x + 8;
     } 
+    
     float getLeft()
     {    
-        return this->sprite.getPosition().x - 8;   
+        return this->sprite.getPosition().x - 8;     
     }
+
 
     bool isWallCollision(int dx, int dy)
     {
-        for( int i = 0 ; i < 250 ;i++){
+        for( int i = 0 ; i < 250 ;i++)
+        {
         
             if(dx + 1  > (wall[i].getPosition().x - 20) &&
             dx - 1 < (wall[i].getPosition().x + 20) &&
@@ -233,13 +240,13 @@ struct Player
         {
             this->score++;
             this->eaten++;
-            cout<<score<<endl;
+           // cout<<score<<endl;
             this->soundeffect.play();
         }
         if(FruitPacCollision(Fruits,5))
         {
             if(this->PowerMode){
-                this->powEnd += 3; // powermode has been extended
+                this->powEnd += 3; // powermode has been EXTENDED
             }
             else{
                 this->PowerMode = true;
@@ -295,7 +302,7 @@ struct Player
         return 0;
     }
 
-    //reader
+//reader
     bool FruitPacCollision(Pellets (Fruits)[5], int fruitCount)
     {
 
@@ -321,13 +328,14 @@ struct Player
     }
 
 };
+
 Player* P = new Player;
 
 pthread_mutex_t GhostMutex[4];
 struct Ghost
 {
     Sprite sprite;
-    float speed;
+    float speed = 0.5;
     Texture tex;
     int direction;
     int x;
@@ -350,6 +358,7 @@ struct Ghost
         this->speedbst = 1.0f;
     }
     
+
 	bool GhostPacCollision(int dx, int dy)
     {   
         if(dx + 1  > (this->sprite.getPosition().x - 20) &&
@@ -377,7 +386,7 @@ struct Ghost
         }
     }
     
-    //reader function
+  //reader function
     void Directed_Movement_Ghost(int ghostIndex)
     {
         if (ghostIndex == 0 || ghostIndex == 2)
@@ -414,6 +423,7 @@ struct Ghost
             else if ((this->sprite.getPosition().x >= 123 && this->sprite.getPosition().x <= 127) && this->sprite.getPosition().y >= 28 && this->sprite.getPosition().y <= 32) { // move down
                 this->direction = 4;
             }
+            //cout << this->sprite.getPosition().x << " " << this->sprite.getPosition().y << endl;
         }
         else if (ghostIndex == 1 || ghostIndex == 3) {
 
@@ -450,8 +460,9 @@ struct Ghost
             else if (this->sprite.getPosition().x >= 422 && this->sprite.getPosition().x <= 424 && this->sprite.getPosition().y >= 269 && this->sprite.getPosition().y <= 272) { // move right
                 this->direction = 2;
             }
-
+            //cout << this->sprite.getPosition().x << " " << this->sprite.getPosition().y << endl;
         }
+
 
         move(ghostIndex); // direction changed, now apply    
 
@@ -463,6 +474,7 @@ struct Ghost
         	P->sprite.setPosition(200,40);
             P->score+=10;
         }
+        
         else if(GhostPacCollision(P->sprite.getPosition().x, P->sprite.getPosition().y) && P->PowerMode)
         {
             P->score+=10;
@@ -473,8 +485,7 @@ struct Ghost
             this->HandleKeyPermitRe();
             sf::sleep(sf::milliseconds(100));
         }
-        pthread_mutex_unlock(&ReadWriteMutex);
-        
+        pthread_mutex_unlock(&ReadWriteMutex); 
     }
 
     void draw(sf::RenderWindow& window)
@@ -514,12 +525,14 @@ struct Ghost
         sem_post(&GhostPermits);
     }
     
+
     bool HandleBoost()
 	{
 		bool HasBoost = false;
 		HasBoost = !sem_trywait(&SpeedBoost);
 		if(HasBoost)
 		{
+			
 			return true;
 		}
 		return false;
@@ -539,6 +552,8 @@ struct Ghost
 	}
    
 };
+
+
 Ghost Ghosts[4]	
 { 
 	Ghost("pacman-art/ghosts/blinky.png", 220, 210),
@@ -546,9 +561,8 @@ Ghost Ghosts[4]
     Ghost("pacman-art/ghosts/inky.png", 310, 210),
     Ghost("pacman-art/ghosts/pinky.png", 280, 210)
 };
-
-
 float speedtimer = 0.0f;
+
 void* Ghost_Movement(void* arg)
 {
     int ghostIndex = *((int*)arg)-1;
@@ -565,6 +579,7 @@ void* Ghost_Movement(void* arg)
 		if(Ghosts[ghostIndex].HandleBoost())
 		{
 			Ghosts[ghostIndex].hasBoost = true;
+			
 		}
 		
 		pthread_mutex_unlock(&GhostMutex[ghostIndex]);
@@ -815,8 +830,10 @@ int main()
 
         UnPowerMode();
         reSpawnPellets(timer,fruitCount);
+        
         Score.setString("SCORE  " + std::to_string(P->score));
 
+        window.clear();
 
         if(P->Lives <= 0){
             P->direction = 0;
@@ -839,11 +856,11 @@ int main()
             heading.setPosition(220,180);
         }
        
-        window.clear();
 		
         pthread_mutex_lock(&PlayerMutex);
         window.draw(P->sprite);
         pthread_mutex_unlock(&PlayerMutex);
+      
 
         DisplayMaze(window,maze,wall);
         DisplayPellets(window,Normal_Pellets,pelletCount);
@@ -851,6 +868,7 @@ int main()
         DrawLife(window,Lifes);
        	for(int i=0; i<4; i++)
 		{
+			
 			pthread_mutex_lock(&GhostMutex[i]);
 			Ghosts[i].draw(window);
 			pthread_mutex_unlock(&GhostMutex[i]);
@@ -862,10 +880,6 @@ int main()
     }
 
     pthread_mutex_destroy(&PlayerMutex);
-    pthread_mutex_destroy(&ReadWriteMutex);
-    for( int i = 0; i < 4; i++){
-        pthread_mutex_destroy(&GhostMutex[i]);
-    }
 
     return 0;
 }
@@ -890,19 +904,19 @@ char Instructions()
     menulist[0].setFont(font);
     menulist[0].setFillColor(sf::Color::White);
     menulist[0].setString("> collect coins + pellets to win");
-    menulist[0].setCharacterSize(25);
+    menulist[0].setCharacterSize(22);
     menulist[0].setPosition(20,220);
 
     menulist[1].setFont(font);
     menulist[1].setFillColor(sf::Color::White);
     menulist[1].setString("> enemies get speed boosts that switch");
-    menulist[1].setCharacterSize(25);
+    menulist[1].setCharacterSize(22);
     menulist[1].setPosition(20,260);
 
     menulist[2].setFont(font);
-    menulist[2].setFillColor(sf::Color::White);
+    menulist[2].setFillColor(sf::Color::Red);
     menulist[2].setString("> B -> BACK");
-    menulist[2].setCharacterSize(25);
+    menulist[2].setCharacterSize(20);
     menulist[2].setPosition(20,300);
 
     sf::RenderWindow window(sf::VideoMode(590,500), "Pacman");
@@ -947,6 +961,7 @@ char MainMenuShow()
     sf::Text menulist[4];
 
     MainMenuSelected = 'E';
+    
     heading.setFont(font);
     heading.setStyle(sf::Text::Underlined);
     heading.setCharacterSize(30);
@@ -971,6 +986,13 @@ char MainMenuShow()
     menulist[2].setString("E > EXIT");
     menulist[2].setCharacterSize(25);
     menulist[2].setPosition(50,300);
+    
+    RectangleShape background;
+	background.setSize(Vector2f(590, 500));
+	Texture MainTexture;
+	MainTexture.loadFromFile("pacman-art/other/PACMAN.png");
+	background.setTexture(&MainTexture);
+	
 
     sf::RenderWindow window(sf::VideoMode(590,500), "Pacman");
     
@@ -1006,8 +1028,7 @@ char MainMenuShow()
         }
 
         window.clear(Color::Black); //clears the screen
-        //window.draw(menubackground);
-        window.draw(heading);
+        window.draw(background);
         window.draw(menulist[0]);
         window.draw(menulist[1]);
         window.draw(menulist[2]);
